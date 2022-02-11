@@ -1,0 +1,211 @@
+---
+title: "ISC organoids data merge and quality check_YL"
+output: html_notebook
+---
+
+1. Generate and process the aligned WT_EIPA RNA seq seraut object
+```{r}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+
+# Load the seur dataset for WT_EIPA
+seur.data <- Read10X("/Users/yiliumba/Desktop/ISC scRNAseq data and analysis/Aligned Matrix/EIPA/filtered_feature_bc_matrix/")
+# Initialize the Seurat object with the raw (non-normalized data).
+WT_EIPA <- CreateSeuratObject(counts = seur.data, project = "WT_EIPA", min.cells = 3, min.features = 200)
+WT_EIPA
+
+# The [[ operator can add columns to object metadata. This is a great place to stash QC stats
+WT_EIPA[["percent.mt"]] <- PercentageFeatureSet(WT_EIPA, pattern = "^MT-")
+
+# Show QC metrics for the first 5 cells
+head(WT_EIPA@meta.data, 5)
+
+# Visualize QC metrics as a violin plot
+VlnPlot(WT_EIPA, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# FeatureScatter is typically used to visualize feature-feature relationships, but can be used
+# for anything calculated by the object, i.e. columns in object metadata, PC scores etc.
+plot1 <- FeatureScatter(WT_EIPA, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(WT-EIPA, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+
+#Generating quality metrics
+# Explore merged metadata
+View(WT_EIPA@meta.data)
+
+# Add number of genes per UMI for each cell to metadata
+WT_EIPA$log10GenesPerUMI <- log10(WT_EIPA$nFeature_RNA) / log10(WT_EIPA$nCount_RNA)
+
+# Compute percent mito ratio
+WT_EIPA$mitoRatio <- PercentageFeatureSet(object = WT_EIPA, pattern = "^MT-")
+WT_EIPA$mitoRatio <- WT_EIPA@meta.data$mitoRatio / 100
+
+# Create metadata dataframe from WT_EIPA
+metadata_EIPA <- WT_EIPA@meta.data
+```
+
+2. Generate and process the aligned WT_DMSO RNA seq seraut object
+```{r}
+library(dplyr)
+library(Seurat)
+library(patchwork)
+
+# Load the seur dataset for WT_DMSO
+seur.data <- Read10X("/Users/yiliumba/Desktop/ISC scRNAseq data and analysis/Aligned Matrix/DMSO/filtered_feature_bc_matrix/")
+# Initialize the Seurat object with the raw (non-normalized data).
+WT_DMSO <- CreateSeuratObject(counts = seur.data, project = "WT_DMSO", min.cells = 3, min.features = 200)
+WT_DMSO
+
+# The [[ operator can add columns to object metadata. This is a great place to stash QC stats
+WT_DMSO[["percent.mt"]] <- PercentageFeatureSet(WT_DMSO, pattern = "^MT-")
+
+# Show QC metrics for the first 5 cells
+head(WT_DMSO@meta.data, 5)
+
+# Visualize QC metrics as a violin plot
+VlnPlot(WT_DMSO, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+
+# FeatureScatter is typically used to visualize feature-feature relationships, but can be used
+# for anything calculated by the object, i.e. columns in object metadata, PC scores etc.
+plot1 <- FeatureScatter(WT_DMSO, feature1 = "nCount_RNA", feature2 = "percent.mt")
+plot2 <- FeatureScatter(WT_DMSO, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+plot1 + plot2
+
+#Generating quality metrics
+# Explore merged metadata
+View(WT_DMSO@meta.data)
+
+# Add number of genes per UMI for each cell to metadata
+WT_DMSO$log10GenesPerUMI <- log10(WT_DMSO$nFeature_RNA) / log10(WT_DMSO$nCount_RNA)
+                                                                          
+ # Compute percent mito ratio
+WT_DMSO$mitoRatio <- PercentageFeatureSet(object = WT_DMSO, pattern = "^MT-")
+WT_DMSO$mitoRatio <- WT_DMSO@meta.data$mitoRatio / 100
+
+# Create metadata dataframe from WT_DMSO
+metadata_DMSO <- WT_DMSO@meta.data
+
+```
+
+3.Merge DMSO and EIPA metadata frame into one merged_metadateframe
+```{r}
+#Merge metadata dataframe WT_DMSO and WT_EIPA
+merged_metadata <- rbind(metadata_DMSO, metadata_EIPA)
+
+```
+
+4.Process the merged_metadateframe for visulized comparison
+```{r}
+# Add cell IDs to merged_metadata
+merged_metadata$cells <-
+merged_metadata$cells <- rownames(merged_metadata$orig.ident)
+
+
+# Rename columns 
+merged_metadata <- merged_metadata %>%
+  dplyr::rename(nUMI = nCount_RNA,
+                nGene = nFeature_RNA)
+
+# Create sample column and assign the sample by its name such as Ctrl vs EIPA
+merged_metadata$sample <-
+merged_metadata$sample[which(str_detect(merged_metadata$orig.ident, "^WT_DMSO"))] <- "Ctrl"
+merged_metadata$sample[which(str_detect(merged_metadata$orig.ident, "^WT_EIPA"))] <- "EIPA"
+
+# Add metadata back to Seurat object (not performed at this time)
+merged_seurat@meta.data <- metadata
+
+# Create .RData object to load at any time (not performed at this time)
+save(merged_seurat, file="data/merged_filtered_seurat.RData")
+```
+
+5.Visulize quality for determing filtering thresholds
+```{r}
+# Visualize the number of cell counts per sample
+merged_metadata %>% 
+  ggplot(aes(x=sample, fill=sample)) + 
+  geom_bar() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("NCells")
+
+# Visualize the number UMIs/transcripts per cell
+merged_metadata %>% 
+  ggplot(aes(color=sample, x=nUMI, fill= sample)) + 
+  geom_density(alpha = 0.2) + 
+  scale_x_log10() + 
+  theme_classic() +
+  ylab("Cell density") +
+  geom_vline(xintercept = 500)
+
+# Visualize the distribution of genes detected per cell via histogram
+merged_metadata %>% 
+  ggplot(aes(color=sample, x=nGene, fill= sample)) + 
+  geom_density(alpha = 0.2) + 
+  theme_classic() +
+  scale_x_log10() + 
+  geom_vline(xintercept = 300)
+
+# Visualize the distribution of genes detected per cell via boxplot
+merged_metadata %>% 
+  ggplot(aes(x=sample, y=log10(nGene), fill=sample)) + 
+  geom_boxplot() + 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("NCells vs NGenes")
+
+# Visualize the distribution of genes detected per cell via histogram
+merged_metadata %>% 
+  ggplot(aes(color=sample, x=nGene, fill= sample)) + 
+  geom_density(alpha = 0.2) + 
+  theme_classic() +
+  scale_x_log10() + 
+  geom_vline(xintercept = 300)
+
+# Visualize the distribution of genes detected per cell via boxplot
+merged_metadata %>% 
+  ggplot(aes(x=sample, y=log10(nGene), fill=sample)) + 
+  geom_boxplot() + 
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  ggtitle("NCells vs NGenes")
+
+# Visualize the correlation between genes detected and number of UMIs and determine whether strong presence of cells with low numbers of genes/UMIs
+merged_metadata %>% 
+  ggplot(aes(x=nUMI, y=nGene, color=mitoRatio)) + 
+  geom_point() + 
+  scale_colour_gradient(low = "gray100", high = "black") +
+  stat_smooth(method=lm) +
+  scale_x_log10() + 
+  scale_y_log10() + 
+  theme_classic() +
+  geom_vline(xintercept = 500) +
+  geom_hline(yintercept = 250) +
+  facet_wrap(~sample)
+
+# Visualize the distribution of mitochondrial gene expression detected per cell
+merged_metadata %>% 
+  ggplot(aes(color=sample, x=mitoRatio, fill=sample)) + 
+  geom_density(alpha = 0.2) + 
+  scale_x_log10() + 
+  theme_classic() +
+  geom_vline(xintercept = 0.2)
+
+# Visualize the overall complexity of the gene expression by visualizing the genes detected per UMI
+merged_metadata %>%
+  ggplot(aes(x=log10GenesPerUMI, color = sample, fill=sample)) +
+  geom_density(alpha = 0.2) +
+  theme_classic() +
+  geom_vline(xintercept = 0.8)
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+

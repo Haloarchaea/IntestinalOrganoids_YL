@@ -1,0 +1,595 @@
+---
+title: "Intestinal organoids: align multiple datasets 2 SCT Integration"
+output: html_notebook
+---
+
+#### 1/18/2022 Wildtype intestinal organoids +/- EIPA were submitted for scRNAseq
+#### 2/8/2022 Raw data made available
+#### 2/8-2/9/2022 Submitted to 10xGenomics server for alignment to the genome (mouse mm10 2020-A genome) using CellRanger
+#### 2/9/2022 Started using this script to generate Seurat objects from the Matrix files and conduct downstream analysis
+
+
+```{r load libraries}
+library(Seurat)
+library(patchwork)
+library(dplyr)
+library(ggplot2)
+```
+
+```{r load Seurat Object}
+#List of files to load into the environment.  Use this to reload the files into the environment after they have been created using the chunk below.  Skip this chunk the first time through the script.
+
+filtered_WT_DMSO1 <- readRDS("filtered_WT_DMSO1.rds")
+filtered_WT_EIPA1 <- readRDS("filtered_WT_EIPA1.rds")
+control3 <- readRDS("control3.rds")
+Nhe2RNAi <- readRDS("Nhe2RNAi_2.rds")
+Nhe2WT <- readRDS("Nhe2WT_2.rds")
+Nhe2asterisk <- readRDS("Nhe2asterisk_2.rds")
+```
+
+
+```{r make Seurat objects}
+#Run this the first time through the script.  After that, just load the data using the chunk above.
+
+#WT_DMSO1 (1st biological replicate for WT_DMSO, sample submitted on 1/18/22)
+
+seur.data <- Read10X("/Users/yiliumba/Desktop/ISC scRNAseq data and analysis/Aligned Matrix/DMSO/filtered_feature_bc_matrix/")
+WT_DMSO1 <- CreateSeuratObject(counts = seur.data, project = "WT_DMSO1", min.cells = 3, min.features = 200)
+WT_DMSO1
+
+WT_DMSO1[["percent.mt"]] <- PercentageFeatureSet(WT_DMSO1, pattern = "mt:")
+VlnPlot(WT_DMSO1, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+WT_DMSO1 -> WT_DMSO1_orig
+
+filtered_WT_DMSO1 <- subset(WT_DMSO1_orig, subset = nFeature_RNA > 250 & nFeature_RNA < 6500 & nCount_RNA > 500 & nCount_RNA < 60000)
+filtered_WT_DMSO1
+
+#WT_EIPA1 (1st biological replicate for WT_EIPA, sample submitted on 1/18/22)
+
+seur.data <- Read10X("/Users/yiliumba/Desktop/ISC scRNAseq data and analysis/Aligned Matrix/EIPA/filtered_feature_bc_matrix/")
+WT_EIPA1 <- CreateSeuratObject(counts = seur.data, project = "WT_EIPA1", min.cells = 3, min.features = 200)
+WT_EIPA1
+
+WT_EIPA1[["percent.mt"]] <- PercentageFeatureSet(WT_EIPA1, pattern = "mt:")
+VlnPlot(WT_EIPA1, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+WT_EIPA1 -> WT_EIPA1_orig
+
+filtered_WT_EIPA1 <- subset(WT_EIPA1_orig, subset = nFeature_RNA > 250 & nFeature_RNA < 8000 & nCount_RNA > 500 & nCount_RNA < 80000)
+filtered_WT_EIPA1
+
+#WT3 (Not applicable at the moment)
+
+seur.data <- Read10X("/Users/abiramisivakanthan/Documents/UCSF\ /Wynton\ Files/Abirami/control3/filtered_feature_bc_matrix")
+control3 <- CreateSeuratObject(counts = seur.data, project = "control3", min.cells = 3, min.features = 200)
+control3
+
+control3[["percent.mt"]] <- PercentageFeatureSet(control3, pattern = "mt:")
+VlnPlot(control3, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+control3 -> control3_orig
+
+control3 <- subset(control3_orig, subset = nFeature_RNA > 500 & nFeature_RNA < 3000 & nCount_RNA > 1000 & nCount_RNA < 25000 & percent.mt < 5)
+control3
+
+#Nhe2RNAi (Not applicable at the moment)
+
+seur.data <- Read10X("/Users/abiramisivakanthan/Documents/UCSF\ /Wynton\ Files/Abirami/Nhe2RNAi/filtered_feature_bc_matrix")
+Nhe2RNAi <- CreateSeuratObject(counts = seur.data, project = "Nhe2RNAi", min.cells = 3, min.features = 200)
+Nhe2RNAi
+
+
+Nhe2RNAi[["percent.mt"]] <- PercentageFeatureSet(Nhe2RNAi, pattern = "mt:")
+VlnPlot(Nhe2RNAi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+Nhe2RNAi_orig <- Nhe2RNAi
+
+Nhe2RNAi <- subset(Nhe2RNAi_orig, subset = nFeature_RNA > 500 & nFeature_RNA < 3800 & nCount_RNA > 1000 & nCount_RNA < 25000 & percent.mt < 10)
+Nhe2RNAi
+
+
+#Nhe2WT (Not applicable at the moment)
+seur.data <- Read10X("/Users/abiramisivakanthan/Documents/UCSF\ /Wynton\ Files/Abirami/Nhe2WT/filtered_feature_bc_matrix")
+Nhe2WT <- CreateSeuratObject(counts = seur.data, project = "Nhe2WT", min.cells = 3, min.features = 200)
+Nhe2WT
+
+
+Nhe2WT[["percent.mt"]] <- PercentageFeatureSet(Nhe2WT, pattern = "mt")
+VlnPlot(Nhe2WT, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+Nhe2WT_orig <- Nhe2WT
+
+Nhe2WT <- subset(Nhe2WT_orig, subset = nFeature_RNA > 500 & nFeature_RNA < 3800 & nCount_RNA > 1000 & nCount_RNA < 25000 & percent.mt < 20)
+Nhe2WT
+
+
+#Nhe2asterisk (Not applicable at the moment)
+seur.data <- Read10X("/Users/abiramisivakanthan/Documents/UCSF\ /Wynton\ Files/Abirami/Nhe2asterisk/filtered_feature_bc_matrix")
+Nhe2asterisk <- CreateSeuratObject(counts = seur.data, project = "Nhe2asterisk", min.cells = 3, min.features = 200)
+Nhe2asterisk
+
+Nhe2asterisk[["percent.mt"]] <- PercentageFeatureSet(Nhe2asterisk, pattern = "mt:")
+VlnPlot(Nhe2asterisk, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3)
+Nhe2asterisk_orig <- Nhe2asterisk
+
+Nhe2asterisk <- subset(Nhe2asterisk_orig, subset = nFeature_RNA > 500 & nFeature_RNA < 4000 & nCount_RNA > 1000 & nCount_RNA < 25000 & percent.mt < 10)
+Nhe2asterisk
+```
+
+```{r renaming datasets}
+#renaming datasets (I forgot what does this chunk do to the dataset?)
+filtered_WT_DMSO1@meta.data[, "dataset"] <- "filtered_WT_DMSO1"
+filtered_WT_EIPA1@meta.data[, "dataset"] <- "filtered_WT_EIPA1"
+
+
+filtered_WT_DMSO1 <- RenameCells(filtered_WT_DMSO1, add.cell.id = "filtered_WT_DMSO1")
+filtered_WT_EIPA1 <- RenameCells(filtered_WT_EIPA1, add.cell.id = "filtered_WT_EIPA1")
+```
+
+```{r saving datasets}
+#saving datasets (only applied to the first two scripts)
+saveRDS(filtered_WT_DMSO1, "filtered_WT_DMSO1.rds")
+saveRDS(filtered_WT_EIPA1, "filtered_WT_EIPA1.rds")
+saveRDS(control3, "control3.rds")
+saveRDS(Nhe2RNAi, "Nhe2RNAi_2.rds")
+saveRDS(Nhe2WT, "Nhe2WT_2.rds")
+saveRDS(Nhe2asterisk, "Nhe2asterisk_2.rds")
+```
+
+```{R Merge Datasets Through Integration method of SCT}
+combined <- merge(x = filtered_WT_DMSO1, y = filtered_WT_EIPA1,  merge.data = T, project = "io")
+
+#rm(list=setdiff(ls(), "combined")) (Don't know what I am doing for this part)
+DefaultAssay(combined) <- "RNA"
+
+ifnb.list <- SplitObject(combined, split.by = "dataset")
+
+#r preprocessing to integrate data (Don't know what does 2000 come from?)
+ifnb.list <- lapply(X = ifnb.list,FUN = SCTransform)
+features <- SelectIntegrationFeatures(object.list = ifnb.list, nfeatures = 2000)
+ifnb.list <- PrepSCTIntegration(object.list = ifnb.list, anchor.features = features)
+saveRDS(ifnb.list, "ifnb.rds")
+
+#r find integration anchors (Don't know how it works yet)
+combined.anchors <- FindIntegrationAnchors(object.list = ifnb.list, normalization.method = 'SCT', anchor.features = features)
+saveRDS(combined.anchors, "/Users/yiliumba/Desktop/ISC scRNAseq data and analysis/ISC share/Rstudio/IntestinalOrganoids/combined.anchors.rds")
+
+
+#r integrate data
+#run this step on wynton
+combined_sct <- IntegrateData(anchorset = combined.anchors, normalization.method = 'SCT')
+
+## Perform an integrated analysis
+#r clustering
+# specify that we will perform downstream analysis on the corrected data
+# note that the original unmodified data still resides in the 'RNA' assay
+
+##unused code:
+##DefaultAssay(combined.sct) <- "RNA"
+##combined <- NormalizeData(combined.sct)
+
+DefaultAssay(combined_sct) <- "integrated"
+#Run the standard workflow for visualization and clustering
+combined_sct <- ScaleData(combined_sct, verbose = FALSE)
+combined_sct <- RunPCA(combined_sct, npcs = 30, verbose = FALSE)
+combined_sct <- RunUMAP(combined_sct, reduction = "pca", dims = 1:17)
+combined_sct <- FindNeighbors(combined_sct, reduction = "pca", dims = 1:17)
+combined_sct <- FindClusters(combined_sct, resolution = 0.08)
+```
+
+```{r}
+#r UMAP of combined data
+# Visualization
+p1 <- DimPlot(combined_sct, reduction = "umap", group.by = "dataset")
+p2 <- DimPlot(combined_sct, reduction = "umap", label = TRUE, repel = TRUE)
+p3 <- p1 + p2
+ggsave(filename = "/Users/abiramisivakanthan/Documents/UCSF\ /Integration\ SCT/UMAP_combined.jpg", height = 7, width = 12, plot = p3, quality = 50)
+
+#r split.dim
+p1 <- DimPlot(combined_sct, reduction = "umap", split.by = "dataset")
+ggsave(filename = "/Users/abiramisivakanthan/Documents/UCSF\ /Integration\ SCT/UMAP_combined_split.jpg", height = 7, width = 12, plot = p1, quality = 50)
+```
+
+```{r}
+#Find Clusters using ideal resolution of 0.8 (determined earlier by trying a bunch of different resolution factors to find the highest one that doesn't split known cell types in to more than one cluster)
+
+combined_sct.8 <- FindClusters(combined_sct, resolution = 0.8)
+UMAPPlot(combined_sct.8)
+
+```
+```{r}
+#Determine Cluster of Interest (Identity of Cluster)
+#Make Dot and Feature Plots for markers you are interested in that are unique to the cells you are interested in (from Katja paper and excel data from Todd)
+
+#FROM KATJA PAPER (fig 1, fig 3, and fig 5)
+#late PFC -> cas, zfh1, sox 14,eya
+#early PFC -> cas, zfh1, sox 14,eya
+#FSC -> cas, wnt4,zfh1, sox 14,eya
+#EC -> cas, wnt4,zfh1, sox 14,eya, Pdk1, NetA, Wnt6, hh, dpr17, GstS1, Hipk 
+#stalk cell ->cas, zfh1, sox 14,CG46339,stl
+#polar cell -> cas, upd1, sox14,stl
+
+#germcells (we are not interested in them but we will have to manually remove these later) -> vas,osk, bam
+
+#Note: remove sox14 (not good enough marker bc prevalent in MB 9+ too -> ambiguous)
+
+DefaultAssay(combined_sct.8) <- "integrated"
+DotPlot(combined_sct.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+ggsave("Combined_sctDotPlot.jpg", width=20, height=10, units = "in")
+
+FeaturePlot (combined_sct.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" , "vas" , "osk" , "bam", "pnt", "Tl", "cv-2" , "br" , "Mhc", "Mid" , "Mirr" , "Yp1" , "CadN"))
+
+#CLUSTER ANALYSIS PREDICTIONS 
+#Cluster 0,1,2,3,5 -> unsure yet
+#Cluster 4 - pMB7
+#Cluster 6- MB2-5
+#Cluster 7- cMB8
+#Cluster 8- pMB8
+#Cluster 9 -> subcluster 9 to see what comes away (1 round subcluster), looks like stem cells and pFC
+#Cluster 10 -> some kind of PFC population (1 round subcluster)
+#Cluster 11- germ cells
+#Cluster 12 - stretch cell
+#Cluster 13 -> polar cells (do 1 round of subclustering just to see)
+#Cluster 14-> subcluster to get zfh1 away from wnt4, looks like EC
+#Cluster 15- hemocytes
+#Cluster 16-> stalk cells (no subclustering needed)
+
+```
+
+```{r define WT}
+#this just adds a "WT" tag to the cells from the wildtype clusters and generates a plot to show where they are
+WT_cells <- WhichCells(ifnb.list$control1)
+WT_cells <- append(WT_cells, WhichCells(ifnb.list$control2))
+
+DimPlot(combined, cells.highlight = WT_cells, pt.size = 1) + 
+scale_color_manual(labels = c("mutant", "WT"), values = c("magenta", "#009E73"))
+```
+
+```{r}
+#SubCluster Cluster of Interest based on Cluster Analysis Chunk
+
+#This pulls out a cluster of interest. For example, if you want to pull out cluster 2 because it contains the Fas3+ cells, then run this code as.  If you want a different cluster, change "cluster 2" to another cluster number  and idents = "2" to idents = another number
+
+#this line of code is needed (present in VST integration but not in SCT)
+all.genes <- rownames(combined)
+
+#Cluster 9 Round 1
+Cluster9_res.8 <- subset(combined_sct.8, idents = "9")
+UMAPPlot(Cluster9_res.8)
+
+DefaultAssay(Cluster9_res.8) <- "integrated"
+Cluster9_res.8 <- FindVariableFeatures(Cluster9_res.8, selection.method = "vst", nfeatures = 2000)
+Cluster9_res.8 <- ScaleData(Cluster9_res.8, features = all.genes)
+Cluster9_res.8 <- RunPCA(Cluster9_res.8)
+Cluster9_res.8 <- FindNeighbors(Cluster9_res.8)
+Cluster9_res.8_res.8 <- FindClusters(Cluster9_res.8, resolution = 0.8)
+UMAPPlot(Cluster9_res.8_res.8)
+
+#identifying markers after Cluster 9 Round 1
+DotPlot(Cluster9_res.8_res.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+FeaturePlot (Cluster9_res.8_res.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+
+#NOTE: Subcluster 2 looks like stem cells, rest early pFC
+
+
+
+
+#Cluster 10 Round 1
+Cluster10_res.8 <- subset(combined_sct.8, idents = "10")
+UMAPPlot(Cluster10_res.8)
+
+DefaultAssay(Cluster10_res.8) <- "integrated"
+Cluster10_res.8 <- FindVariableFeatures(Cluster10_res.8, selection.method = "vst", nfeatures = 2000)
+Cluster10_res.8 <- ScaleData(Cluster10_res.8, features = all.genes)
+Cluster10_res.8 <- RunPCA(Cluster10_res.8)
+Cluster10_res.8 <- FindNeighbors(Cluster10_res.8)
+Cluster10_res.8_res.8 <- FindClusters(Cluster10_res.8, resolution = 0.8)
+UMAPPlot(Cluster10_res.8_res.8)
+
+#identifying markers after Cluster 10 Round 1
+DotPlot(Cluster10_res.8_res.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+FeaturePlot (Cluster10_res.8_res.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+
+#NOTE: looks like late pFC 
+
+
+
+
+#Cluster 13 Round 1 -> subcluster until CG46339 not expressed in one cluster
+Cluster13_res.8 <- subset(combined_sct.8, idents = "13")
+UMAPPlot(Cluster13_res.8)
+
+DefaultAssay(Cluster13_res.8) <- "integrated"
+Cluster13_res.8 <- FindVariableFeatures(Cluster13_res.8, selection.method = "vst", nfeatures = 2000)
+Cluster13_res.8 <- ScaleData(Cluster13_res.8, features = all.genes)
+Cluster13_res.8 <- RunPCA(Cluster13_res.8)
+Cluster13_res.8 <- FindNeighbors(Cluster13_res.8)
+#chose 0.95 res for better seperation
+Cluster13_res.8_res.95 <- FindClusters(Cluster13_res.8, resolution = 0.95)
+UMAPPlot(Cluster13_res.8_res.95)
+
+#identifying markers after Cluster 13 Round 1
+DotPlot(Cluster13_res.8_res.95, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+FeaturePlot (Cluster13_res.8_res.95, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+#NOTE: all polar cells 
+
+
+#Cluster 14 Round 1 -> looks like EC, subcluster to get zfh1 away from wnt4
+Cluster14_res.8 <- subset(combined_sct.8, idents = "14")
+UMAPPlot(Cluster14_res.8)
+
+DefaultAssay(Cluster14_res.8) <- "integrated"
+Cluster14_res.8 <- FindVariableFeatures(Cluster14_res.8, selection.method = "vst", nfeatures = 2000)
+Cluster14_res.8 <- ScaleData(Cluster14_res.8, features = all.genes)
+Cluster14_res.8 <- RunPCA(Cluster14_res.8)
+Cluster14_res.8 <- FindNeighbors(Cluster14_res.8)
+Cluster14_res.8_res.8 <- FindClusters(Cluster14_res.8, resolution = 0.8)
+UMAPPlot(Cluster14_res.8_res.8)
+
+#identifying markers after Cluster 14 Round 1
+DotPlot(Cluster14_res.8_res.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+FeaturePlot (Cluster14_res.8_res.8, features = c("cas", "zfh1", "Wnt4", "stl", "eya" , "upd1" , "CG46339", "Pdk1" , "NetA" , "Wnt6" , "hh" , "dpr17" , "GstS1" , "Hipk" ,"vas" , "osk" , "bam","pnt", "Tl", "cv-2" , "br" , "Mhc", "mid" , "mirr" , "Yp1" , "CadN"))
+
+#NOTE: EC
+
+```
+
+```{r}
+#Naming the merged dataset (using subclusters)
+
+#Cluster 4 <- pMB7
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "4"), "pMB7")
+
+#Cluster 6 <- MB2-5
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "6"), "MB2-5")
+
+#Cluster 7 <- cMB8
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "7"), "cMB8")
+
+#Cluster 8 <- pMB8
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "8"), "pMB8")
+
+#Cluster 9 -> 9.0,9.1,9.3,9.4 -> early pFC and 9.2-> stem cells, rest of clusters
+combined_sct.8 <- SetIdent(combined_sct.8, cells = WhichCells(Cluster9_res.8_res.8, idents = "0"), "early pFC")
+combined_sct.8  <- SetIdent(combined_sct.8,  cells = WhichCells(Cluster9_res.8_res.8, idents = "1"), "early pFC")
+combined_sct.8  <- SetIdent(combined_sct.8, cells = WhichCells(Cluster9_res.8_res.8, idents = "2"), "FSC")
+combined_sct.8  <- SetIdent(combined_sct.8, cells = WhichCells(Cluster9_res.8_res.8, idents = "3"), "early pFC")
+combined_sct.8  <- SetIdent(combined_sct.8, cells = WhichCells(Cluster9_res.8_res.8, idents = "4"), "early pFC")
+
+
+#Cluster 10 -> late pFC (no subclustering needed so just entire cluster)
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "10"), "late pFC")
+
+#Cluster 11
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "11"), "germ")
+
+#Cluster 12
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "12"), "stretch")
+
+#Cluster 13 -> polar cells (no subclustering needed so just entire cluster)
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "13"), "polar")
+
+#Cluster 14 -> EC (no subclustering needed so just entire cluster)
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "14"), "EC")
+
+#Cluster 15
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "15"), "hemocytes")
+
+#Cluster 16 ->    -> stalk cells (no subclustering needed so just entire cluster)
+combined_sct.8  <- SetIdent(combined_sct.8, cells= WhichCells(combined_sct.8, idents = "16"), "stalk")
+
+UMAPPlot(combined_sct.8)
+saveRDS(combined_sct.8, "combined_sct.8.rds")
+
+```
+
+```{r} 
+#Manually Finding Doublets
+
+fsc <- subset(combined_sct.8, cells= WhichCells(combined_sct.8, idents="FSC"))
+fsc_doublet <- subset(combined_sct.8, cells=WhichCells(fsc, subset.name="bam", accept.high= 0.1))
+
+```
+
+```{r}
+#Checking how well each daataset is distributed across merged dataset
+
+combined_sct.8.list <- SplitObject(combined_sct.8, split.by = "dataset")
+
+#Nhe2WT
+Nhe2WT <- WhichCells(combined_sct.8.list$Nhe2WT)
+UMAPPlot(combined_sct.8, cells.highlight = Nhe2WT) +
+scale_color_manual(labels = c("all cells", "Nhe2WT"), values = c("grey", "#009E73"))
+
+#Nhe2RNAi
+Nhe2RNAi <- WhichCells(combined_sct.8.list$Nhe2RNAi)
+UMAPPlot(combined_sct.8, cells.highlight = Nhe2RNAi) +
+scale_color_manual(labels = c("all cells", "Nhe2RNAi"), values = c("grey", "#009E73"))
+
+#Nhe2asterisk
+Nhe2asterisk <- WhichCells(combined_sct.8.list$Nhe2asterisk)
+UMAPPlot(combined_sct.8, cells.highlight = Nhe2asterisk) +
+scale_color_manual(labels = c("all cells", "Nhe2asterisk"), values = c("grey", "#009E73"))
+
+#control1
+control1 <- WhichCells(combined_sct.8.list$control1)
+UMAPPlot(combined_sct.8, cells.highlight = control1) +
+scale_color_manual(labels = c("all cells", "control1"), values = c("grey", "#009E73"))
+
+#control2
+control2 <- WhichCells(combined_sct.8.list$control2)
+UMAPPlot(combined_sct.8, cells.highlight = control2) +
+scale_color_manual(labels = c("all cells", "control2"), values = c("grey", "#009E73"))
+
+#control3
+control3 <- WhichCells(combined_sct.8.list$control3)
+UMAPPlot(combined_sct.8, cells.highlight = control3) +
+scale_color_manual(labels = c("all cells", "control3"), values = c("grey", "#009E73"))
+
+
+
+
+```
+```{r}
+#RunFindMarkers to see Differentially Expressed Genes
+
+combined_sct.8.list <- SplitObject(combined_sct.8, split.by = "dataset")
+
+#FSC
+FSC <- subset(combined_sct.8, idents = "FSC")
+
+FSC <- SetIdent(FSC, cells = WhichCells(combined_sct.8.list$control1), "control")
+FSC <- SetIdent(FSC, cells = WhichCells(combined_sct.8.list$control2), "control")
+FSC <- SetIdent(FSC, cells = WhichCells(combined_sct.8.list$control3), "control")
+FSC <- SetIdent(FSC, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+FSC <- SetIdent(FSC, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+FSC <- SetIdent(FSC, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+FSC_markers_asterisk <- FindMarkers(FSC, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(FSC_markers_asterisk, "FSC_markers_asterisk.allmarkers.csv")
+FSC_markers_RNAi <- FindMarkers(FSC, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(FSC_markers_RNAi, "FSC_markers_RNAi.allmarkers.csv")
+FSC_markers_WT <- FindMarkers(FSC, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(FSC_markers_WT, "FSC_markers_WT.allmarkers.csv")
+
+
+
+
+
+#EC 
+EC <- subset(combined_sct.8, idents = "EC")
+
+EC <- SetIdent(EC, cells = WhichCells(combined_sct.8.list$control1), "control")
+EC <- SetIdent(EC, cells = WhichCells(combined_sct.8.list$control2), "control")
+EC <- SetIdent(EC, cells = WhichCells(combined_sct.8.list$control3), "control")
+EC <- SetIdent(EC, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+EC <- SetIdent(EC, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+EC <- SetIdent(EC, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+EC_markers_asterisk <- FindMarkers(EC, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(EC_markers_asterisk, "EC_markers_asterisk.allmarkers.csv")
+EC_markers_RNAi <- FindMarkers(EC, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(EC_markers_RNAi, "EC_markers_RNAi.allmarkers.csv")
+EC_markers_WT <- FindMarkers(EC, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(EC_markers_WT, "EC_markers_WT.allmarkers.csv")
+
+
+
+
+#Polar
+polar <- subset(combined_sct.8, idents = "polar")
+
+polar <- SetIdent(polar, cells = WhichCells(combined_sct.8.list$control1), "control")
+polar <- SetIdent(polar, cells = WhichCells(combined_sct.8.list$control2), "control")
+polar <- SetIdent(polar, cells = WhichCells(combined_sct.8.list$control3), "control")
+polar <- SetIdent(polar, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+polar <- SetIdent(polar, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+polar <- SetIdent(polar, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+polar_markers_asterisk <- FindMarkers(polar, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(polar_markers_asterisk, "polar_markers_asterisk.allmarkers.csv")
+polar_markers_RNAi <- FindMarkers(polar, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(polar_markers_RNAi, "polar_markers_RNAi.allmarkers.csv")
+polar_markers_WT <- FindMarkers(polar, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(polar_markers_WT, "polar_markers_WT.allmarkers.csv")
+
+
+
+
+#Stalk
+stalk <- subset(combined_sct.8, idents = "stalk")
+
+stalk <- SetIdent(stalk, cells = WhichCells(combined_sct.8.list$control1), "control")
+stalk <- SetIdent(stalk, cells = WhichCells(combined_sct.8.list$control2), "control")
+stalk <- SetIdent(stalk, cells = WhichCells(combined_sct.8.list$control3), "control")
+stalk <- SetIdent(stalk, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+stalk <- SetIdent(stalk, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+stalk <- SetIdent(stalk, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+stalk_markers_asterisk <- FindMarkers(stalk, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(stalk_markers_asterisk, "stalk_markers_asterisk.allmarkers.csv")
+stalk_markers_RNAi <- FindMarkers(stalk, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(stalk_markers_RNAi, "stalk_markers_RNAi.allmarkers.csv")
+stalk_markers_WT <- FindMarkers(stalk, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(stalk_markers_WT, "stalk_markers_WT.allmarkers.csv")
+
+
+
+
+#late pFC
+latepFC <- subset(combined_sct.8, idents = "late pFC")
+
+latepFC <- SetIdent(latepFC, cells = WhichCells(combined_sct.8.list$control1), "control")
+latepFC <- SetIdent(latepFC, cells = WhichCells(combined_sct.8.list$control2), "control")
+latepFC <- SetIdent(latepFC, cells = WhichCells(combined_sct.8.list$control3), "control")
+latepFC <- SetIdent(latepFC, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+latepFC <- SetIdent(latepFC, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+latepFC <- SetIdent(latepFC, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+latepFC_markers_asterisk <- FindMarkers(latepFC, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(latepFC_markers_asterisk, "latepFC_markers_asterisk.allmarkers.csv")
+latepFC_markers_RNAi <- FindMarkers(latepFC, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(latepFC_markers_RNAi, "latepFC_markers_RNAi.allmarkers.csv")
+latepFC_markers_WT <- FindMarkers(latepFC, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(latepFC_markers_WT, "latepFC_markers_WT.allmarkers.csv")
+
+
+
+#early pFC
+combined_sct.8.list <- SplitObject(combined_sct.8, split.by = "dataset")
+earlypFC <- subset(combined_sct.8, idents = "early pFC")
+
+earlypFC <- SetIdent(earlypFC, cells = WhichCells(combined_sct.8.list$control1), "control")
+earlypFC <- SetIdent(earlypFC, cells = WhichCells(combined_sct.8.list$control2), "control")
+earlypFC <- SetIdent(earlypFC, cells = WhichCells(combined_sct.8.list$control3), "control")
+earlypFC <- SetIdent(earlypFC, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+earlypFC <- SetIdent(earlypFC, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+earlypFC <- SetIdent(earlypFC, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+earlypFC_markers_asterisk <- FindMarkers(earlypFC, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(earlypFC_markers_asterisk, "earlypFC_markers_asterisk.allmarkers.csv")
+earlypFC_markers_RNAi <- FindMarkers(earlypFC, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(earlypFC_markers_RNAi, "earlypFC_markers_RNAi.allmarkers.csv")
+earlypFC_markers_WT <- FindMarkers(earlypFC, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(earlypFC_markers_WT, "earlypFC_markers_WT.allmarkers.csv")
+
+
+
+
+#germ
+combined_sct.8.list <- SplitObject(combined_sct.8, split.by = "dataset")
+germ <- subset(combined_sct.8, idents = "germ")
+
+germ <- SetIdent(germ, cells = WhichCells(combined_sct.8.list$control1), "control")
+germ <- SetIdent(germ, cells = WhichCells(combined_sct.8.list$control2), "control")
+germ <- SetIdent(germ, cells = WhichCells(combined_sct.8.list$control3), "control")
+germ <- SetIdent(germ, cells = WhichCells(combined_sct.8.list$Nhe2asterisk), "Nhe2asterisk")
+germ <- SetIdent(germ, cells = WhichCells(combined_sct.8.list$Nhe2RNAi), "Nhe2RNAi")
+germ <- SetIdent(germ, cells = WhichCells(combined_sct.8.list$Nhe2WT), "Nhe2WT")
+
+#creating the subsets for lists
+germ_markers_asterisk <- FindMarkers(germ, ident.1 = "Nhe2asterisk", ident.2 = "control")
+write.csv(germ_markers_asterisk, "germ_markers_asterisk.allmarkers.csv")
+germ_markers_RNAi <- FindMarkers(germ, ident.1 = "Nhe2RNAi", ident.2 = "control")
+write.csv(germ_markers_RNAi, "germ_markers_RNAi.allmarkers.csv")
+germ_markers_WT <- FindMarkers(germ, ident.1 = "Nhe2WT", ident.2 = "control")
+write.csv(germ_markers_WT, "germ_markers_WT.allmarkers.csv")
+
+
+
+
+
+```
+```
+
+```{r}
+#RunFindAllMarkers
+
+combined_sct.8.markers <- FindAllMarkers(combined_sct.8)
+write.csv(combined_sct.8.markers, "Combined_sct.8.allmarkers.csv")
+```
+
+
+
